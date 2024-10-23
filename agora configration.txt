@@ -1,0 +1,152 @@
+npm install react-native-agora
+
+
+
+
+android/app/build.gradle
+android {
+    ...
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+
+android/app/src/main/AndroidManifest.xml
+
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.CAMERA"/>
+<uses-permission android:name="android.permission.RECORD_AUDIO"/>
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+
+
+
+ Create a new component (e.g., VideoCall)
+
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Button, StyleSheet, SafeAreaView, Text } from 'react-native';
+import RtcEngine from 'react-native-agora';
+
+const VideoCall = () => {
+  const [engine, setEngine] = useState(null);
+  const [joined, setJoined] = useState(false);
+  const [roomId, setRoomId] = useState('test-room'); // Your channel name
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStreams, setRemoteStreams] = useState([]);
+  const rtcEngineRef = useRef(null);
+
+  useEffect(() => {
+    const init = async () => {
+      const rtcEngine = await RtcEngine.create('<YOUR_AGORA_APP_ID>');
+      rtcEngineRef.current = rtcEngine;
+      setEngine(rtcEngine);
+
+      // Set up listeners
+      rtcEngine.addListener('UserJoined', (uid) => {
+        console.log('User Joined: ', uid);
+        setRemoteStreams((prev) => [...prev, uid]);
+      });
+
+      rtcEngine.addListener('UserOffline', (uid) => {
+        console.log('User Offline: ', uid);
+        setRemoteStreams((prev) => prev.filter(user => user !== uid));
+      });
+    };
+
+    init();
+
+    return () => {
+      if (rtcEngineRef.current) {
+        rtcEngineRef.current.destroy();
+      }
+    };
+  }, []);
+
+  const joinChannel = async () => {
+    if (engine) {
+      await engine.enableVideo();
+      await engine.startPreview();
+      await engine.joinChannel(null, roomId, null, 0);
+      setJoined(true);
+    }
+  };
+
+  const leaveChannel = async () => {
+    if (engine) {
+      await engine.leaveChannel();
+      setJoined(false);
+      setRemoteStreams([]);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {joined ? (
+        <View style={styles.callContainer}>
+          <Text style={styles.channelName}>Channel: {roomId}</Text>
+          {/* Add your local video view here */}
+          <Button title="Leave Channel" onPress={leaveChannel} />
+        </View>
+      ) : (
+        <Button title="Join Channel" onPress={joinChannel} />
+      )}
+      {/* Render remote video streams here */}
+      {remoteStreams.map((uid) => (
+        <View key={uid} style={styles.remoteStream}>
+          <Text>Remote User: {uid}</Text>
+          {/* Implement a remote video view component here */}
+        </View>
+      ))}
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  callContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  channelName: {
+    fontSize: 20,
+    marginBottom: 20,
+  },
+  remoteStream: {
+    height: 100,
+    width: 100,
+    borderWidth: 1,
+    borderColor: 'black',
+    margin: 5,
+  },
+});
+
+export default VideoCall;
+
+
+
+
+
+Update App.js
+
+
+import React from 'react';
+import VideoCall from './VideoCall';
+
+const App = () => {
+  return <VideoCall />;
+};
+
+export default App;
+
+
+
+
+
+Replace <YOUR_AGORA_APP_ID>
